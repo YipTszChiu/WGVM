@@ -1,6 +1,7 @@
 package common
 
 import (
+	"WGVM/src/common/op"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -325,15 +326,20 @@ func (reader *wasmReader) readElem() Elem {
 func (reader *wasmReader) readCodeSec() []Code {
 	vec := make([]Code, reader.readVarU32())
 	for i := range vec {
-		vec[i] = reader.readCode()
+		vec[i] = reader.readCode(i)
 	}
 	return vec
 }
-func (reader *wasmReader) readCode() Code {
-	codeReader := &wasmReader{data: reader.readBytes()}
+
+func (reader *wasmReader) readCode(idx int) Code {
+	n := reader.readVarU32()
+	remainingBeforeRead := reader.remaining()
 	code := Code{
-		Locals: codeReader.readLocalsVec(),
-		//Expr:   reader.readExpr(),
+		Locals: reader.readLocalsVec(),
+		Expr:   reader.readExpr(),
+	}
+	if reader.remaining()+int(n) != remainingBeforeRead {
+		panic(fmt.Errorf("invalid code[%d]", idx))
 	}
 	if code.GetLocalCount() >= math.MaxUint32 {
 		panic(fmt.Errorf("too many locals: %d",
@@ -341,6 +347,7 @@ func (reader *wasmReader) readCode() Code {
 	}
 	return code
 }
+
 func (reader *wasmReader) readLocalsVec() []Locals {
 	vec := make([]Locals, reader.readVarU32())
 	for i := range vec {
@@ -446,7 +453,132 @@ func (reader *wasmReader) readIndices() []uint32 {
 
 // expr & instruction
 func (reader *wasmReader) readExpr() Expr {
-	for reader.readByte() != 0x0B {
+	instrs, end := reader.readInstructions()
+	if end != op.End_ {
+		panic(fmt.Errorf("invalid expr end: %d", end))
 	}
-	return nil
+	return instrs
+}
+
+func (reader *wasmReader) readInstructions() (instrs []Instruction, end byte) {
+	for {
+		instr := reader.readInstruction()
+		if instr.Opcode == op.Else_ || instr.Opcode == op.End_ {
+			end = instr.Opcode
+			return
+		}
+		instrs = append(instrs, instr)
+	}
+}
+
+func (reader *wasmReader) readInstruction() (instr Instruction) {
+	instr.Opcode = reader.readByte()
+	if op.Opnames[instr.Opcode] == "" {
+		panic(fmt.Errorf("undefined opcode: 0x%02x", instr.Opcode))
+	}
+	instr.Args = reader.readArgs(instr.Opcode)
+	return
+}
+
+func (reader *wasmReader) readArgs(opcode byte) interface{} {
+	switch opcode {
+	case op.Block, op.Loop:
+		return reader.readBlockArgs()
+	case op.If:
+		return reader.readIfArgs()
+	case op.Br, op.BrIf:
+		return reader.readVarU32() // label_idx
+	case op.BrTable:
+		return reader.readBrTableArgs()
+	case op.Call:
+		return reader.readVarU32() // func_idx
+	case op.CallIndirect:
+		return reader.readCallIndirectArgs()
+	case op.LocalGet, op.LocalSet, op.LocalTee:
+		return reader.readVarU32() // local_idx
+	case op.GlobalGet, op.GlobalSet:
+		return reader.readVarU32() // global_idx
+	case op.MemorySize, op.MemoryGrow:
+		return reader.readZero()
+	case op.I32Const:
+		return reader.readVarS32()
+	case op.I64Const:
+		return reader.readVarS64()
+	case op.F32Const:
+		return reader.readF32()
+	case op.F64Const:
+		return reader.readF64()
+	case op.TruncSat:
+		return reader.readByte()
+	default:
+		if opcode >= op.I32Load && opcode <= op.I64Store32 {
+			return reader.readMemArg()
+		}
+		return nil
+	}
+}
+
+func (reader *wasmReader) readBlockArgs() (args BlockArgs) {
+	var end byte
+	args.BT = reader.readBlockType()
+	args.Instrs, end = reader.readInstructions()
+	if end != op.End_ {
+		panic(fmt.Errorf("invalid block end: %d", end))
+	}
+	return
+}
+
+func (reader *wasmReader) readBlockType() int32 {
+	bt := reader.readVarS32()
+	if bt < 0 {
+		switch bt {
+		case BlockTypeI32, BlockTypeI64,
+			BlockTypeF32, BlockTypeF64,
+			BlockTypeEmpty:
+		default:
+			panic(fmt.Errorf("malformed block type: %d", bt))
+		}
+	}
+	return bt
+}
+
+func (reader *wasmReader) readIfArgs() (args IfArgs) {
+	var end byte
+	args.BT = reader.readBlockType()
+	args.Instrs1, end = reader.readInstructions()
+	if end == op.Else_ {
+		args.Instrs2, end = reader.readInstructions()
+		if end != op.End_ {
+			panic(fmt.Errorf("invalid block end: %d", end))
+		}
+	}
+	return
+}
+
+func (reader *wasmReader) readBrTableArgs() BrTableArgs {
+	return BrTableArgs{
+		Labels:  reader.readIndices(),
+		Default: reader.readVarU32(),
+	}
+}
+
+func (reader *wasmReader) readCallIndirectArgs() uint32 {
+	typeIdx := reader.readVarU32()
+	reader.readZero()
+	return typeIdx
+}
+
+func (reader *wasmReader) readZero() byte {
+	b := reader.readByte()
+	if b != 0 {
+		panic(fmt.Errorf("zero flag expected, got %d", b))
+	}
+	return 0
+}
+
+func (reader *wasmReader) readMemArg() MemArg {
+	return MemArg{
+		Align:  reader.readVarU32(),
+		Offset: reader.readVarU32(),
+	}
 }
