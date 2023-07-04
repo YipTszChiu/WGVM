@@ -30,7 +30,7 @@ func Decode(data []byte) (module Module, err error) {
 			case error:
 				err = x
 			default:
-				err = errors.New("unknown error")
+				err = errors.New("unknown err")
 			}
 		}
 	}()
@@ -46,7 +46,7 @@ func (reader *wasmReader) remaining() int {
 // fixed length value
 func (reader *wasmReader) readByte() byte {
 	if len(reader.data) < 1 {
-		panic(errUnexpectedEnd)
+		panic(ErrUnexpectedEnd)
 	}
 	b := reader.data[0]
 	reader.data = reader.data[1:]
@@ -54,7 +54,7 @@ func (reader *wasmReader) readByte() byte {
 }
 func (reader *wasmReader) readU32() uint32 {
 	if len(reader.data) < 4 {
-		panic(errUnexpectedEnd)
+		panic(ErrUnexpectedEnd)
 	}
 	n := binary.LittleEndian.Uint32(reader.data)
 	reader.data = reader.data[4:]
@@ -62,7 +62,7 @@ func (reader *wasmReader) readU32() uint32 {
 }
 func (reader *wasmReader) readF32() float32 {
 	if len(reader.data) < 4 {
-		panic(errUnexpectedEnd)
+		panic(ErrUnexpectedEnd)
 	}
 	n := binary.LittleEndian.Uint32(reader.data)
 	reader.data = reader.data[4:]
@@ -70,7 +70,7 @@ func (reader *wasmReader) readF32() float32 {
 }
 func (reader *wasmReader) readF64() float64 {
 	if len(reader.data) < 8 {
-		panic(errUnexpectedEnd)
+		panic(ErrUnexpectedEnd)
 	}
 	n := binary.LittleEndian.Uint64(reader.data)
 	reader.data = reader.data[8:]
@@ -98,7 +98,7 @@ func (reader *wasmReader) readVarS64() int64 {
 func (reader *wasmReader) readBytes() []byte {
 	n := reader.readVarU32()
 	if len(reader.data) < int(n) {
-		panic(errUnexpectedEnd)
+		panic(ErrUnexpectedEnd)
 	}
 	bytes := reader.data[:n]
 	reader.data = reader.data[n:]

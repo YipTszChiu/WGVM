@@ -6,10 +6,10 @@ func decodeVarUint(data []byte, size int) (uint64, int) {
 	for i, b := range data {
 		if i == size/7 {
 			if b&0x80 != 0 {
-				panic(errIntTooLong)
+				panic(ErrIntTooLong)
 			}
 			if b>>(size-i*7) > 0 {
-				panic(errIntTooLarge)
+				panic(ErrIntTooLarge)
 			}
 		}
 		result |= (uint64(b) & 0x7f) << (i * 7)
@@ -17,7 +17,7 @@ func decodeVarUint(data []byte, size int) (uint64, int) {
 			return result, i + 1
 		}
 	}
-	panic(errUnexpectedEnd)
+	panic(ErrUnexpectedEnd)
 }
 
 // https://en.wikipedia.org/wiki/LEB128#Decode_signed_integer
@@ -26,11 +26,11 @@ func decodeVarInt(data []byte, size int) (int64, int) {
 	for i, b := range data {
 		if i == size/7 {
 			if b&0x80 != 0 {
-				panic(errIntTooLong)
+				panic(ErrIntTooLong)
 			}
 			if b&0x40 == 0 && b>>(size-i*7-1) != 0 ||
 				b&0x40 != 0 && int8(b|0x80)>>(size-i*7-1) != -1 {
-				panic(errIntTooLarge)
+				panic(ErrIntTooLarge)
 			}
 		}
 		result |= (int64(b) & 0x7f) << (i * 7)
@@ -41,5 +41,5 @@ func decodeVarInt(data []byte, size int) (int64, int) {
 			return result, i + 1
 		}
 	}
-	panic(errUnexpectedEnd)
+	panic(ErrUnexpectedEnd)
 }
