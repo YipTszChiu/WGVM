@@ -7,6 +7,7 @@ import (
 type Vm struct {
 	operandStack
 	module common.Module
+	memory *memory
 }
 
 func ExecMainFunc(module common.Module) {

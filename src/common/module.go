@@ -149,3 +149,8 @@ func (module Module) GetBlockType(bt BlockType) FuncType {
 		return module.TypeSec[bt]
 	}
 }
+
+const (
+	PageSize     = 65536 // 64KB
+	MaxPageCount = 65536 // 2^16
+)
