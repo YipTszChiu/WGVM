@@ -2,6 +2,7 @@ package main
 
 import (
 	"WGVM/src/common"
+	"WGVM/src/interpreter"
 	"flag"
 	"fmt"
 	"os"
@@ -23,5 +24,7 @@ func main() {
 
 	if *dumpFlag {
 		dump(module)
+	} else {
+		interpreter.ExecMainFunc(module)
 	}
 }

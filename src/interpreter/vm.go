@@ -13,7 +13,20 @@ type Vm struct {
 func ExecMainFunc(module common.Module) {
 	idx := int(*module.StartSec) - len(module.ImportSec)
 	vm := &Vm{module: module}
+	vm.initMem()
 	vm.execCode(idx)
+}
+
+func (vm *Vm) initMem() {
+	if len(vm.module.MemSec) > 0 {
+		vm.memory = newMemory(vm.module.MemSec[0])
+	}
+	for _, data := range vm.module.DataSec {
+		for _, instr := range data.Offset {
+			vm.execInstr(instr)
+		}
+		vm.memory.Write(vm.PopU64(), data.Init)
+	}
 }
 
 func (vm *Vm) execCode(idx int) {
