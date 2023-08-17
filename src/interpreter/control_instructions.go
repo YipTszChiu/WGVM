@@ -1,36 +1,164 @@
 package interpreter
 
-import "WGVM/src/common/op"
+import (
+	"WGVM/src/common"
+	"WGVM/src/common/op"
+)
 
-func call(vm *Vm, args interface{}) {
-	// 将立即数强转为函数索引
-	idx := int(args.(uint32))
-	// 目前只考虑导入函数，不考虑其他类型，后续会补充处理
-	// 导入函数的数量
-	importedFuncCount := len(vm.module.ImportSec) // TODO
-	if idx < importedFuncCount {
-		// 外部函数
-		callAssertFunc(vm, args) // hack!
+func unreachable(vm *Vm, _ interface{}) {
+	panic(ErrTrap)
+}
+
+func nop(vm *Vm, _ interface{}) {
+	// do nothing
+}
+
+func block(vm *Vm, args interface{}) {
+	blockArgs := args.(common.BlockArgs)
+	bt := vm.module.GetBlockType(blockArgs.BT)
+	vm.enterBlock(op.Block, bt, blockArgs.Instrs)
+}
+
+func loop(vm *Vm, args interface{}) {
+	blockArgs := args.(common.BlockArgs)
+	bt := vm.module.GetBlockType(blockArgs.BT)
+	vm.enterBlock(op.Loop, bt, blockArgs.Instrs)
+}
+
+func _if(vm *Vm, args interface{}) {
+	ifArgs := args.(common.IfArgs)
+	bt := vm.module.GetBlockType(ifArgs.BT)
+	if vm.PopBool() {
+		vm.enterBlock(op.If, bt, ifArgs.Instrs1)
 	} else {
-		// 内部函数
-		callInternalFunc(vm, idx-importedFuncCount)
+		vm.enterBlock(op.If, bt, ifArgs.Instrs2)
 	}
 }
 
-func callInternalFunc(vm *Vm, idx int) {
-	// 获取函数的类型和指令
-	ftIdx := vm.module.FuncSec[idx]
-	ft := vm.module.TypeSec[ftIdx]
-	code := vm.module.CodeSec[idx]
-	// 创建一个新的调用帧，并给局部变量分配好空间
-	vm.enterBlock(op.Call, ft, code.Expr)
+func br(vm *Vm, args interface{}) {
+	labelIdx := int(args.(uint32))
+	for i := 0; i < labelIdx; i++ {
+		vm.popControlFrame()
+	}
+	if cf := vm.topControlFrame(); cf.opcode != op.Loop {
+		vm.exitBlock()
+	} else {
+		vm.resetBlock(cf)
+		cf.pc = 0
+	}
+}
 
-	localCount := int(code.GetLocalCount())
+func brIf(vm *Vm, args interface{}) {
+	if vm.PopBool() {
+		br(vm, args)
+	}
+}
+
+func brTable(vm *Vm, args interface{}) {
+	brTableArgs := args.(common.BrTableArgs)
+	n := int(vm.PopU32())
+	if n < len(brTableArgs.Labels) {
+		br(vm, brTableArgs.Labels[n])
+	} else {
+		br(vm, brTableArgs.Default)
+	}
+}
+
+func _return(vm *Vm, _ interface{}) {
+	_, labelIdx := vm.topCallFrame()
+	br(vm, uint32(labelIdx))
+}
+
+func call(vm *Vm, args interface{}) {
+	f := vm.funcs[args.(uint32)]
+	callFunc(vm, f)
+}
+
+func callFunc(vm *Vm, f vmFunc) {
+	if f._func != nil {
+		callExternalFunc(vm, f)
+	} else {
+		callInternalFunc(vm, f)
+	}
+}
+
+func callExternalFunc(vm *Vm, f vmFunc) {
+	args := popArgs(vm, f._type)
+	results, Err := f._func.Call(args...)
+	if Err != nil {
+		panic(Err)
+	}
+	pushResults(vm, f._type, results)
+}
+
+func popArgs(vm *Vm, ft common.FuncType) []interface{} {
+	paramCount := len(ft.ParamTypes)
+	args := make([]interface{}, paramCount)
+	for i := paramCount - 1; i >= 0; i-- {
+		args[i] = wrapU64(ft.ParamTypes[i], vm.PopU64())
+	}
+	return args
+}
+
+func pushResults(vm *Vm, ft common.FuncType, results []interface{}) {
+	if len(ft.ResultTypes) != len(results) {
+		panic("TODO")
+	}
+	for _, result := range results {
+		vm.PushU64(unwrapU64(ft.ResultTypes[0], result))
+	}
+}
+
+/*
+operand stack:
+
++~~~~~~~~~~~~~~~+
+|               |
++---------------+
+|     stack     |
++---------------+
+|     locals    |
++---------------+
+|     params    |
++---------------+
+|  ............ |
+*/
+func callInternalFunc(vm *Vm, f vmFunc) {
+	vm.enterBlock(op.Call, f._type, f.code.Expr)
+
+	// alloc locals
+	localCount := int(f.code.GetLocalCount())
 	for i := 0; i < localCount; i++ {
 		vm.PushU64(0)
 	}
 }
 
-func callAssertFunc(vm *Vm, args interface{}) {
-	// TODO
+func callIndirect(vm *Vm, args interface{}) {
+	typeIdx := args.(uint32)
+	ft := vm.module.TypeSec[typeIdx]
+
+	i := vm.PopU32()
+	if i >= vm.table.Size() {
+		panic(ErrUndefinedElem)
+	}
+
+	f := vm.table.GetElem(i)
+	if f.Type().GetSignature() != ft.GetSignature() {
+		panic(ErrTypeMismatch)
+	}
+
+	// optimize internal func call
+	if _f, ok := f.(vmFunc); ok {
+		if _f._func == nil && _f.vm == vm {
+			callInternalFunc(vm, _f)
+			return
+		}
+	}
+
+	fcArgs := popArgs(vm, ft)
+	results, Err := f.Call(fcArgs...)
+	if Err != nil {
+		panic(Err)
+	}
+	pushResults(vm, ft, results)
 }

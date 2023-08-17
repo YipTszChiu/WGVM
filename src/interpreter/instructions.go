@@ -1,17 +1,30 @@
 package interpreter
 
-import (
-	"WGVM/src/common/op"
-)
+import "WGVM/src/common/op"
 
 type instrFn = func(vm *Vm, args interface{})
 
 var InstrTable = make([]instrFn, 256)
 
 func init() {
-	//InstrTable[op.Call] = call // hack!
+	InstrTable[op.Unreachable] = unreachable
+	InstrTable[op.Nop] = nop
+	InstrTable[op.Block] = block
+	InstrTable[op.Loop] = loop
+	InstrTable[op.If] = _if
+	InstrTable[op.Br] = br
+	InstrTable[op.BrIf] = brIf
+	InstrTable[op.BrTable] = brTable
+	InstrTable[op.Return] = _return
+	InstrTable[op.Call] = call
+	InstrTable[op.CallIndirect] = callIndirect
 	InstrTable[op.Drop] = drop
 	InstrTable[op.Select] = _select
+	InstrTable[op.LocalGet] = localGet
+	InstrTable[op.LocalSet] = localSet
+	InstrTable[op.LocalTee] = localTee
+	InstrTable[op.GlobalGet] = globalGet
+	InstrTable[op.GlobalSet] = globalSet
 	InstrTable[op.I32Load] = i32Load
 	InstrTable[op.I64Load] = i64Load
 	InstrTable[op.F32Load] = f32Load

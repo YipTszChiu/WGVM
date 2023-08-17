@@ -1,19 +1,17 @@
 package instance
 
-import (
-	"wasm.go/binary"
-)
+import "WGVM/src/common"
 
 var _ Function = (*nativeFunction)(nil)
 
 type GoFunc = func(args []WasmVal) ([]WasmVal, error)
 
 type nativeFunction struct {
-	t binary.FuncType
+	t common.FuncType
 	f GoFunc
 }
 
-func (nf nativeFunction) Type() binary.FuncType {
+func (nf nativeFunction) Type() common.FuncType {
 	return nf.t
 }
 func (nf nativeFunction) Call(args ...WasmVal) ([]WasmVal, error) {
