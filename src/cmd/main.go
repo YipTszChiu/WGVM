@@ -2,6 +2,7 @@ package main
 
 import (
 	"WGVM/src/common"
+	"WGVM/src/instance"
 	"WGVM/src/interpreter"
 	"flag"
 	"fmt"
@@ -25,6 +26,18 @@ func main() {
 	if *dumpFlag {
 		dump(module)
 	} else {
-		interpreter.ExecMainFunc(module)
+		instantiateAndExecMainFunc(module)
+	}
+}
+
+func instantiateAndExecMainFunc(module common.Module) {
+	mm := map[string]instance.Module{"env": newEnv()}
+	m, err := interpreter.New(module, mm)
+	if err == nil {
+		_, err = m.InvokeFunc("main")
+	}
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 }
