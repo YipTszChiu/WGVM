@@ -1,7 +1,20 @@
 package blockChain
 
+import "errors"
+
+var State = map[string]string{}
+
 type Stub struct {
-	txId string
+	txId        string
+	txTimestamp string
+}
+
+func (stub *Stub) GetTxTimestamp() string {
+	return stub.txTimestamp
+}
+
+func (stub *Stub) SetTxTimestamp(txTimestamp string) {
+	stub.txTimestamp = txTimestamp
 }
 
 func (stub *Stub) GetTxId() string {
@@ -13,14 +26,17 @@ func (stub *Stub) SetTxId(txId string) {
 }
 
 func (stub *Stub) GetStringState(key string) (string, error) {
-	// Function signature
+	if v, ok := State[key]; ok {
+		return v, nil
+	}
+	return "", errors.New("key exist")
 }
 
-func (stub *Stub) PutStringState(key string, value string) error {
-	// Function signature
+func (stub *Stub) SetStringState(key string, value string) error {
+	State[key] = value
+	return nil
 }
 
-//
 //	func (stub *stub) DelState(key string) error {
 //		// Function signature
 //	}
@@ -40,6 +56,3 @@ func (stub *Stub) PutStringState(key string, value string) error {
 //	func (stub *stub) GetBinding() ([]byte, error) {
 //		// Function signature
 //	}
-func (stub *Stub) GetTxTimestamp() (string, error) {
-	// Function signature
-}

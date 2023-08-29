@@ -1,6 +1,9 @@
 package blockChain
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type EvidenceInfo struct {
 	EvidenceId   string `json:"evidenceId"`
@@ -40,10 +43,12 @@ func AddEvidence(context *Context, data string) *CreateResult {
 
 	}
 	txId := stub.GetTxId()
-	timeStamp, e := stub.GetTxTimestamp()
+	timeStamp := stub.GetTxTimestamp()
 	evidenceinfo.EvidenceTxId = txId
 	evidenceStateBytes, _ := json.Marshal(evidenceinfo)
-	stub.PutStringState(key, string(evidenceStateBytes))
+	stub.SetStringState(key, string(evidenceStateBytes))
+	// text
+	fmt.Println(stub.GetStringState(key))
 	return &CreateResult{
 		EvidenceId:  evidenceinfo.EvidenceId,
 		TxId:        txId,
@@ -53,4 +58,23 @@ func AddEvidence(context *Context, data string) *CreateResult {
 
 func formatEvidenceKey(evidenceId string) string {
 	return "Evi_" + evidenceId
+}
+
+func CreateEvidenceJson() {
+	evidence := EvidenceInfo{
+		EvidenceId:   "123",
+		UploaderSign: "abc",
+		EvidenceTxId: "xyz",
+		Content:      "Sample content",
+	}
+
+	// 将 EvidenceInfo 转换为 JSON 格式
+	evidenceJSON, err := json.Marshal(evidence)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// 打印 JSON 格式的 EvidenceInfo
+	fmt.Println(string(evidenceJSON))
 }
