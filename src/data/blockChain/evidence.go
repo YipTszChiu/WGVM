@@ -47,8 +47,6 @@ func AddEvidence(context *Context, data string) *CreateResult {
 	evidenceinfo.EvidenceTxId = txId
 	evidenceStateBytes, _ := json.Marshal(evidenceinfo)
 	stub.SetStringState(key, string(evidenceStateBytes))
-	// text
-	fmt.Println(stub.GetStringState(key))
 	return &CreateResult{
 		EvidenceId:  evidenceinfo.EvidenceId,
 		TxId:        txId,

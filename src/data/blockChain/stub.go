@@ -1,9 +1,5 @@
 package blockChain
 
-import "errors"
-
-var State = map[string]string{}
-
 type Stub struct {
 	txId        string
 	txTimestamp string
@@ -26,15 +22,13 @@ func (stub *Stub) SetTxId(txId string) {
 }
 
 func (stub *Stub) GetStringState(key string) (string, error) {
-	if v, ok := State[key]; ok {
-		return v, nil
-	}
-	return "", errors.New("key exist")
+	state := GetStateInstance()
+	return state.GetState(key), nil
 }
 
-func (stub *Stub) SetStringState(key string, value string) error {
-	State[key] = value
-	return nil
+func (stub *Stub) SetStringState(key string, value string) {
+	state := GetStateInstance()
+	state.SetState(key, value)
 }
 
 //	func (stub *stub) DelState(key string) error {

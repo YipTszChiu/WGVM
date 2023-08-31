@@ -1,6 +1,7 @@
 package blockChain
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -13,4 +14,7 @@ func TestAddEvidence(t *testing.T) {
 	stub := Stub{txId: "12346", txTimestamp: "000001"}
 	context := Context{stub: stub}
 	AddEvidence(&context, data)
+	state := GetStateInstance()
+	res := state.GetState("Evi_123")
+	fmt.Println(res)
 }
